@@ -453,6 +453,19 @@ class GeneticsVisualization:
 
         stats_y += max(len(col1_stats), len(col2_stats)) * 16 + 12
 
+        # Add diet and habitat information
+        # Get representative agent to access genetic traits
+        rep_agent = data['representative']
+        if hasattr(rep_agent, 'diet_type'):
+            diet_text = self.font_small.render(f"Diet: {rep_agent.diet_type}", True, self.text_color)
+            screen.blit(diet_text, (stats_x, stats_y))
+            stats_y += 16
+
+        if hasattr(rep_agent, 'habitat_preference'):
+            habitat_text = self.font_small.render(f"Habitat: {rep_agent.habitat_preference}", True, self.text_color)
+            screen.blit(habitat_text, (stats_x, stats_y))
+            stats_y += 16
+
         # === WEIGHT STATISTICS ===
         if data['representative'] and hasattr(data['representative'], 'brain'):
             brain = data['representative'].brain

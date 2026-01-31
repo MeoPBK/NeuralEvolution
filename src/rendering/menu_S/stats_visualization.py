@@ -261,8 +261,11 @@ class StatsVisualization:
             if len(snaps) >= 5:
                 time_span = snaps[-1].time - snaps[-5].time
                 if time_span > 0:
-                    births_rate = (snaps[-1].total_births - snaps[-5].total_births) / time_span
-                    deaths_rate = (snaps[-1].total_deaths - snaps[-5].total_deaths) / time_span
+                    # Calculate birth/death rates based on population changes
+                    # since the stats system doesn't track births/deaths directly
+                    pop_change = snaps[-1].agent_count - snaps[-5].agent_count
+                    births_rate = max(0, pop_change) / time_span  # Approximate births
+                    deaths_rate = max(0, -pop_change) / time_span  # Approximate deaths
 
             pop_trend = get_trend(total, 'agent_count')
             energy_trend = get_trend(avg_energy, 'avg_energy')
@@ -781,6 +784,15 @@ class StatsVisualization:
         thirsty = sum(1 for a in live_agents if a.hydration < 50)
         low_health = sum(1 for a in live_agents if a.energy < 30 or a.hydration < 30)
 
+        # Diet and habitat classification
+        carnivores = sum(1 for a in live_agents if hasattr(a, 'diet_type') and a.diet_type == 'carnivore')
+        herbivores = sum(1 for a in live_agents if hasattr(a, 'diet_type') and a.diet_type == 'herbivore')
+        omnivores = sum(1 for a in live_agents if hasattr(a, 'diet_type') and a.diet_type == 'omnivore')
+
+        aquatic = sum(1 for a in live_agents if hasattr(a, 'habitat_preference') and a.habitat_preference == 'aquatic')
+        amphibious = sum(1 for a in live_agents if hasattr(a, 'habitat_preference') and a.habitat_preference == 'amphibious')
+        terrestrial = sum(1 for a in live_agents if hasattr(a, 'habitat_preference') and a.habitat_preference == 'terrestrial')
+
         behaviors = [
             ("Attacking", attacking, (255, 90, 90)),
             ("Fleeing", fleeing, (255, 200, 80)),
@@ -852,6 +864,28 @@ class StatsVisualization:
 
         for need_text, color in needs:
             surf = self.font_tiny.render(need_text, True, color)
+            screen.blit(surf, (lx, ly))
+            ly += 12
+
+        # Diet and habitat section
+        ly += 5
+        pygame.draw.line(screen, self.border_color, (lx, ly), (lx + 140, ly), 1)
+        ly += 6
+        diet_header = self.font_tiny.render("Diet/Habitat:", True, self.accent_color)
+        screen.blit(diet_header, (lx, ly))
+        ly += 13
+
+        diet_habitat = [
+            (f"Carnivore: {carnivores} ({carnivores*100//total}%)", (255, 100, 100)),
+            (f"Herbivore: {herbivores} ({herbivores*100//total}%)", (100, 255, 100)),
+            (f"Omnivore: {omnivores} ({omnivores*100//total}%)", (255, 255, 100)),
+            (f"Aquatic: {aquatic} ({aquatic*100//total}%)", (100, 150, 255)),
+            (f"Amphibious: {amphibious} ({amphibious*100//total}%)", (100, 200, 255)),
+            (f"Terrestrial: {terrestrial} ({terrestrial*100//total}%)", (200, 180, 100)),
+        ]
+
+        for dh_text, color in diet_habitat:
+            surf = self.font_tiny.render(dh_text, True, color)
             screen.blit(surf, (lx, ly))
             ly += 12
 
@@ -1070,9 +1104,14 @@ class StatsVisualization:
         if len(snaps) >= 5:
             time_span = snaps[-1].time - snaps[-5].time
             if time_span > 0:
-                kill_rate = (snaps[-1].total_kills - snaps[-5].total_kills) / time_span
-                birth_rate = (snaps[-1].total_births - snaps[-5].total_births) / time_span
-                death_rate = (snaps[-1].total_deaths - snaps[-5].total_deaths) / time_span
+                # Calculate kill rate based on agent count changes
+                # since the stats system doesn't track kills directly
+                kill_rate = 0.0  # Placeholder - actual kill rate calculation would need to track kills
+                # Calculate birth/death rates based on population changes
+                # since the stats system doesn't track births/deaths directly
+                pop_change = snaps[-1].agent_count - snaps[-5].agent_count
+                birth_rate = max(0, pop_change) / time_span  # Approximate births
+                death_rate = max(0, -pop_change) / time_span  # Approximate deaths
 
         # Calculate killers percentage
         killers = sum(1 for a in live_agents if getattr(a, 'kills', 0) > 0)

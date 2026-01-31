@@ -52,7 +52,7 @@ def draw_main_menu(screen, font_large, font_med):
 
     # Version info
     version_font = pygame.font.SysFont('monospace', 12)
-    version = version_font.render("v2.0 - Advanced Features Edition", True, (80, 85, 100))
+    version = version_font.render("v0.0.1", True, (80, 85, 100))
     screen.blit(version, (screen_width // 2 - version.get_width() // 2, title_y + 75))
 
     # Menu buttons - centered vertically
@@ -61,8 +61,8 @@ def draw_main_menu(screen, font_large, font_med):
     button_spacing = 15
     buttons = [
         ('new_simulation', 'New Simulation', SUCCESS_COLOR, 'Start a new simulation with custom settings'),
+        ('multiagent_mode', 'Multiagent Mode', ACCENT_COLOR, 'Run multiple agent configurations together'),
         ('load_simulation', 'Load Simulation', ACCENT_COLOR, 'Load a previously saved simulation'),
-        ('load_settings', 'Load Settings', ACCENT_COLOR, 'Load saved configuration settings'),
         ('documentation', 'Documentation', WARNING_COLOR, 'View the simulation manual and guides'),
         ('exit', 'Exit', DANGER_COLOR, 'Exit the program'),
     ]
@@ -130,6 +130,22 @@ def handle_main_menu_input(event):
         for action, rect in button_rects.items():
             if rect.collidepoint(pos):
                 return action
+    elif event.type == pygame.KEYDOWN:
+        # Keyboard shortcuts for menu options
+        if event.key == pygame.K_1:
+            return 'new_simulation'
+        elif event.key == pygame.K_2:
+            return 'multiagent_mode'  # Multiagent mode is now option 2
+        elif event.key == pygame.K_3:
+            return 'load_simulation'  # Load simulation is now option 3
+        elif event.key == pygame.K_4:
+            return 'load_settings'  # Load settings is now option 4
+        elif event.key == pygame.K_5:
+            return 'documentation'  # Documentation is now option 5
+        elif event.key == pygame.K_6:
+            return 'exit'  # Exit is now option 6
+        elif event.key == pygame.K_ESCAPE:
+            return 'exit'
     return None
 
 
@@ -213,6 +229,20 @@ def draw_load_dialog(screen, font_large, font_med, save_type='simulation'):
     return file_rects, close_rect
 
 
+def handle_load_dialog_input(event, file_rects, close_rect):
+    """Handle input for the load dialog. Returns filename or 'close' or None."""
+    if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        pos = event.pos
+        # Check close button
+        if close_rect.collidepoint(pos):
+            return 'close'
+        # Check file entries
+        for filename, rect in file_rects.items():
+            if rect.collidepoint(pos):
+                return filename
+    return None
+
+
 def draw_documentation(screen, font_large, font_med, scroll_offset=0):
     """Draw the documentation/manual screen."""
     screen_width, screen_height = screen.get_size()
@@ -237,105 +267,125 @@ def draw_documentation(screen, font_large, font_med, scroll_offset=0):
     content_width = screen_width - 80
     small_font = pygame.font.SysFont('monospace', 13)
     section_font = pygame.font.SysFont('monospace', 16, bold=True)
+    subsection_font = pygame.font.SysFont('monospace', 14, bold=True)
 
-    # Documentation content
-    sections = [
-        ("Overview", [
-            "This simulation demonstrates emergent behaviors through genetic algorithms",
-            "and neural networks. Agents evolve their behavior over generations by",
-            "optimizing their neural network weights for survival and reproduction.",
-            "",
-            "Key features:",
-            "  - Sector-based spatial sensing (5 angular sectors)",
-            "  - Decoupled behavioral drives (avoid, attack, mate, effort)",
-            "  - V2 Neural Architecture: 24 inputs -> 8 hidden -> 6 outputs",
-            "  - Optional RNN with recurrent connections for temporal memory",
-            "  - Advanced modulation features (size, age, morphology effects)",
-        ]),
-        ("Controls", [
-            "SPACE      - Pause/Resume simulation",
-            "UP/DOWN    - Speed up/slow down simulation",
-            "ESC        - Return to settings/menu",
-            "F11        - Toggle fullscreen",
-            "G          - Toggle Genetics visualization (Menu G)",
-            "S          - Toggle Statistics visualization",
-            "H          - Toggle HUD sidebar",
-            "O          - Toggle obstacles",
-            "B          - Toggle border walls",
-            "M          - Add horizontal mountain chain",
-            "N          - Add vertical mountain chain",
-            "R          - Add vertical river",
-            "T          - Add horizontal river",
-            "L          - Add lake",
-            "D          - Add diagonal mountain range",
-            "C          - Clear all obstacles (except borders)",
-        ]),
-        ("Neural Network Architecture", [
-            "The V2 architecture uses sector-based sensing:",
-            "",
-            "INPUTS (24 total):",
-            "  [0-4]   Food signals per sector (5 sectors)",
-            "  [5-9]   Water signals per sector",
-            "  [10-14] Agent signals per sector (+prey, -threat)",
-            "  [15]    Energy (normalized)",
-            "  [16]    Hydration (normalized)",
-            "  [17]    Age ratio",
-            "  [18]    Stress level",
-            "  [19]    Health (combined vitality)",
-            "  [20-21] Egocentric velocity (forward, lateral)",
-            "  [22-23] Self traits (size, speed normalized)",
-            "",
-            "OUTPUTS (6 total):",
-            "  [0-1]   Movement direction (x, y)",
-            "  [2]     Avoid drive (flee tendency)",
-            "  [3]     Attack drive",
-            "  [4]     Mate desire",
-            "  [5]     Effort (energy expenditure)",
-            "",
-            "FNN: 254 weights total",
-            "RNN: 318 weights total (includes 8x8 recurrent matrix)",
-        ]),
-        ("Advanced Features", [
-            "All optional features can be enabled in settings:",
-            "",
-            "SIZE EFFECTS: Large agents are stronger but slower",
-            "AGE EFFECTS: Life stages (young, prime, old) affect capabilities",
-            "INTERNAL STATE: Energy/hydration affect performance",
-            "ACTION COSTS: Different actions have asymmetric energy costs",
-            "MORPHOLOGY: Agility and armor traits with trade-offs",
-            "SENSORY NOISE: Realistic perception imperfection",
-            "CONTEXT SIGNALS: Time-since events as extra inputs",
-            "SOCIAL PRESSURE: Crowding and dominance affect stress",
-        ]),
-        ("Tips for Evolution", [
-            "- Start with smaller populations for faster initial evolution",
-            "- Higher mutation rates accelerate evolution but reduce stability",
-            "- RNN agents can develop more complex temporal behaviors",
-            "- Enable advanced features gradually to observe their effects",
-            "- Food cluster movement simulates seasonal resource changes",
-            "- Water scarcity forces agents to develop resource-seeking behavior",
-        ]),
-    ]
+    # Load documentation from the comprehensive file
+    try:
+        doc_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'docs', 'final_comprehensive_documentation.md')
+        with open(doc_file_path, 'r', encoding='utf-8') as f:
+            doc_lines = f.readlines()
+
+        # Parse the documentation into sections
+        sections = []
+        current_section = None
+        current_content = []
+
+        for line in doc_lines:
+            stripped_line = line.rstrip()  # Keep internal spacing but remove trailing newline
+
+            # Check for section headers (lines starting with ##)
+            if stripped_line.startswith('## ') and not stripped_line.startswith('###'):
+                # Save previous section if exists
+                if current_section:
+                    sections.append((current_section, current_content))
+
+                # Start new section
+                current_section = stripped_line[3:]  # Remove '## ' prefix
+                current_content = []
+            elif stripped_line.startswith('### ') and not stripped_line.startswith('####'):
+                # Add subsection as a special formatted line
+                current_content.append(f"SUBSECTION: {stripped_line[4:]}")  # Remove '### ' prefix
+            elif stripped_line and not stripped_line.startswith('#'):  # Regular content line
+                # Remove markdown formatting but preserve content
+                clean_line = stripped_line.replace('[', '').replace(']', '').replace('(', '').replace(')', '')
+                # Remove markdown links but keep the text
+                if '](' in clean_line:
+                    # Handle markdown links: [text](link) -> text
+                    import re
+                    clean_line = re.sub(r'\[([^\]]+)\]\([^)]*\)', r'\1', clean_line)
+
+                clean_line = clean_line.replace('*', '')  # Remove bold/italic markers
+                clean_line = clean_line.replace('_', '')  # Remove underscore markers
+
+                if clean_line.strip() and not clean_line.startswith('---') and not clean_line.startswith('<'):
+                    current_content.append(clean_line.strip())
+
+        # Add the last section
+        if current_section:
+            sections.append((current_section, current_content))
+
+    except FileNotFoundError:
+        # Fallback to original content if file not found
+        sections = [
+            ("Project Overview", [
+                "This is an advanced evolutionary simulation that models a population of agents in a 2D world.",
+                "Each agent's behavior is controlled by a genetically-encoded neural network.",
+                "The simulation explores how complex behaviors like herbivory, cannibalism, and social",
+                "dynamics can emerge through evolutionary processes.",
+                "",
+                "Key features:",
+                "  - Sector-based spatial sensing (5 angular sectors)",
+                "  - Decoupled behavioral drives (avoid, attack, mate, effort)",
+                "  - V2 Neural Architecture: 24 inputs -> 8 hidden -> 6 outputs",
+                "  - Optional RNN with recurrent connections for temporal memory",
+                "  - Advanced modulation features (size, age, morphology effects)",
+            ]),
+            ("Core Architecture", [
+                "The simulation follows a modular architecture with clearly defined systems that",
+                "interact through well-defined interfaces. The main components include the Simulation",
+                "class, World class, Entity classes, and System classes."
+            ]),
+            ("Neural Network System", [
+                "The simulation uses sophisticated neural networks with sector-based sensing and",
+                "decoupled behavioral drives. Two network types are available: Feed-Forward",
+                "Neural Network (FNN) and Recurrent Neural Network (RNN)."
+            ]),
+            ("Controls", [
+                "SPACE      - Pause/Resume simulation",
+                "UP/DOWN    - Speed up/slow down simulation",
+                "ESC        - Return to settings/menu",
+                "F11        - Toggle fullscreen",
+                "G          - Toggle Genetics visualization (Menu G)",
+                "S          - Toggle Statistics visualization",
+                "H          - Toggle HUD sidebar",
+                "O          - Toggle obstacles",
+                "B          - Toggle border walls",
+                "M          - Add horizontal mountain chain",
+                "N          - Add vertical mountain chain",
+                "R          - Add vertical river",
+                "T          - Add horizontal river",
+                "L          - Add lake",
+                "D          - Add diagonal mountain range",
+                "C          - Clear all obstacles (except borders)",
+            ]),
+        ]
 
     y = content_y
     for section_title, lines in sections:
         # Section header
         section_text = section_font.render(section_title, True, ACCENT_COLOR)
-        if y > 0 and y < screen_height:
+        if y > -30 and y < screen_height + 30:  # Extended visibility range
             screen.blit(section_text, (content_x, y))
         y += 30
 
         # Section content
         for line in lines:
-            line_text = small_font.render(line, True, TEXT_COLOR if line.strip() else MUTED_COLOR)
-            if y > 0 and y < screen_height:
-                screen.blit(line_text, (content_x + 20, y))
-            y += 18
+            # Check if this is a subsection
+            if line.startswith("SUBSECTION:"):
+                subsection_text = subsection_font.render(line[11:], True, (180, 180, 220))  # Lighter blue for subsections
+                if y > -20 and y < screen_height + 20:  # Extended visibility range
+                    screen.blit(subsection_text, (content_x + 10, y))
+                y += 20
+            else:
+                line_text = small_font.render(line, True, TEXT_COLOR if line.strip() else MUTED_COLOR)
+                if y > -20 and y < screen_height + 20:  # Extended visibility range
+                    screen.blit(line_text, (content_x + 20, y))
+                y += 18
 
         y += 25  # Section spacing
 
     # Calculate max scroll
-    total_height = y - content_y + scroll_offset + 100
+    total_height = max(screen_height, y - content_y + scroll_offset + 100)
     max_scroll = max(0, total_height - screen_height + header_height + 50)
 
     pygame.display.flip()

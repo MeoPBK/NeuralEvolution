@@ -94,7 +94,6 @@ class EventManager:
         self.active_events.append(event)
         self.event_history.append(event)
 
-        print(f"Epidemic triggered! Affected {len(affected_agents)} out of {len(world.agent_list)} agents")
 
     def check_species_events(self, world):
         """Check for species extinction and new species creation events."""
@@ -113,7 +112,6 @@ class EventManager:
                 self.current_event_message = f"EXTINCTION: {species_name} (ID: {species_id}) has gone extinct!"
                 self.event_display_timer = 5.0  # Show message for 5 seconds
                 self.extinct_species.add(species_id)
-                print(f"EXTINCTION: {species_name} (ID: {species_id}) has gone extinct!")
 
         # Check for new species
         for species_id, current_count in current_species_counts.items():
@@ -123,7 +121,6 @@ class EventManager:
                 self.current_event_message = f"NEW SPECIES: {species_name} (ID: {species_id}) has emerged!"
                 self.event_display_timer = 5.0  # Show message for 5 seconds
                 self.new_species_announced.add(species_id)
-                print(f"NEW SPECIES: {species_name} (ID: {species_id}) has emerged!")
 
         # Update previous counts for next check
         self.previous_species_counts = current_species_counts.copy()

@@ -91,10 +91,30 @@ def update_combat(world, dt, particle_system=None):
         if target.energy <= 0:
             target.die()
 
-            # Killer gains energy from cannibalism
+            # Killer gains energy from killing
             energy_gain = settings['KILL_ENERGY_GAIN']
             if agent != target:
-                energy_gain += settings.get('CANNIBALISM_ENERGY_BONUS', 20.0)
+                # Only carnivores and omnivores can gain full benefit from killing other agents
+                if agent.can_eat_meat():
+                    # Apply diet-specific energy conversion for carnivores
+                    diet_type = agent.diet_type_numeric
+                    if diet_type <= 0.5:  # Carnivore
+                        food_preference = agent.phenotype.get('DIET_FOOD_PREFERENCE_CARNIVORE', 1.5)
+                        energy_conversion = agent.diet_energy_conversion_rate
+                        # Carnivores get enhanced benefit based on their meat preference
+                        base_bonus = settings.get('CANNIBALISM_ENERGY_BONUS', 20.0)
+                        enhanced_bonus = base_bonus * (0.8 + 0.4 * food_preference / 2.0) * energy_conversion
+                        energy_gain += enhanced_bonus
+                    else:  # Omnivore
+                        food_preference = agent.phenotype.get('DIET_FOOD_PREFERENCE_OMNIVORE', 1.0)
+                        energy_conversion = agent.diet_energy_conversion_rate
+                        # Omnivores get moderate benefit based on their meat preference
+                        base_bonus = settings.get('CANNIBALISM_ENERGY_BONUS', 20.0)
+                        moderate_bonus = base_bonus * (0.9 + 0.2 * food_preference / 2.0) * energy_conversion
+                        energy_gain += moderate_bonus
+                else:
+                    # Herbivores get reduced benefit from killing
+                    energy_gain += settings.get('CANNIBALISM_ENERGY_BONUS', 20.0) * 0.3
 
             agent.energy = min(settings['MAX_ENERGY'], agent.energy + energy_gain)
 
@@ -103,8 +123,11 @@ def update_combat(world, dt, particle_system=None):
                 agent.time_since_food = 0.0
 
             # Update dietary behavior
-            agent.update_dietary_behavior(attack_successful=True, ate_food=False)
+            agent.update_dietary_behavior(attack_successful=True, ate_food=agent.can_eat_meat())
 
             # Update carnivorous tendency
             if agent != target:
-                agent.carnivorous_tendency += 0.05
+                if agent.can_eat_meat():
+                    agent.carnivorous_tendency += 0.05
+                else:
+                    agent.herbivorous_tendency += 0.02  # Herbivores feel bad about killing

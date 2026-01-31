@@ -38,7 +38,8 @@ def compute_sector_inputs(agent, world, settings):
     inputs = []
 
     # Get vision range with possible perception modifier
-    base_vision = agent.phenotype.get('vision_range', 100.0)
+    # Use habitat-specific vision range if available, otherwise fall back to base
+    base_vision = agent.vision_range_by_habitat
 
     # Apply perception modifier if advanced features enabled
     if settings.get('ADVANCED_SIZE_EFFECTS_ENABLED', False):

@@ -53,8 +53,8 @@ def _compute_cost(agent, dt, settings):
     effort_energy_scale = settings.get('EFFORT_ENERGY_SCALE', 1.5)
     effort_multiplier = 0.5 + effort * effort_energy_scale
 
-    # Base metabolic cost
-    base_cost = settings['ENERGY_DRAIN_BASE']
+    # Base metabolic cost - use habitat-specific rate
+    base_cost = agent.energy_consumption_rate
 
     # Apply superlinear size scaling if enabled
     if settings.get('SUPERLINEAR_ENERGY_SCALING', True):

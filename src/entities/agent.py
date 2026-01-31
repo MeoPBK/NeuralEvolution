@@ -1,6 +1,7 @@
 import random
 import math
 import pygame
+import weakref
 from src.utils.vector import Vector2
 from src.genetics.genome import Genome
 from src.genetics.phenotype import compute_phenotype
@@ -86,6 +87,12 @@ class Agent:
             'virus_resistance': 1.0,
         }
 
+        # Initialize water speed based on habitat preference
+        self._update_water_speed()
+
+        # Store world reference as a weak reference to prevent circular references
+        self._world_ref = None
+
         # Disease/infection tracking
         self.infected = False  # Whether the agent is currently infected
         self.infection_timer = 0.0  # Timer for infection effects/duration
@@ -108,6 +115,21 @@ class Agent:
 
         # Offspring tracking
         self.offspring_count = 0  # Count of successful reproductions
+
+        # Water exposure tracking
+        self.time_in_water = 0.0  # Time spent continuously in water
+        self.is_in_water = False  # Whether currently in water
+
+        # Random diet and habitat assignment if enabled in settings
+        if settings:
+            if settings.get('RANDOMIZE_DIET_TYPE', False):
+                import random
+                # Randomly assign diet type (0.0 to 2.0)
+                self.phenotype['diet_type'] = random.uniform(0.0, 2.0)
+            if settings.get('RANDOMIZE_HABITAT_PREF', False):
+                import random
+                # Randomly assign habitat preference (0.0 to 2.0)
+                self.phenotype['habitat_preference'] = random.uniform(0.0, 2.0)
 
     def _determine_region(self, settings=None):
         """Determine which geographic region the agent is in based on position."""
@@ -142,56 +164,19 @@ class Agent:
         # Use settings to determine region modifiers if available
         if settings and settings.get('REGIONAL_VARIATIONS_ENABLED', True):
             # Get the region-specific modifiers from settings, ensuring we don't exceed array bounds
-            speed_modifiers = settings.get('REGION_SPEED_MODIFIER', [1.1, 0.9, 1.0, 1.2])
-            # Ensure it's a list/array and not a string representation
-            if isinstance(speed_modifiers, str):
-                # If it's a string representation of a list, try to parse it
-                try:
-                    import ast
-                    speed_modifiers = ast.literal_eval(speed_modifiers)
-                except (ValueError, SyntaxError):
-                    # If parsing fails, use defaults
-                    speed_modifiers = [1.1, 0.9, 1.0, 1.2]
-            # Ensure the region index is valid and within array bounds
+            speed_modifiers = self._parse_or_get_default(settings.get('REGION_SPEED_MODIFIER', [1.1, 0.9, 1.0, 1.2]))
             region_index = min(self.region, len(speed_modifiers) - 1) if len(speed_modifiers) > 0 else 0
             speed_modifier = speed_modifiers[region_index] if 0 <= region_index < len(speed_modifiers) else 1.0
 
-            size_modifiers = settings.get('REGION_SIZE_MODIFIER', [0.9, 1.1, 1.0, 0.8])
-            # Ensure it's a list/array and not a string representation
-            if isinstance(size_modifiers, str):
-                # If it's a string representation of a list, try to parse it
-                try:
-                    import ast
-                    size_modifiers = ast.literal_eval(size_modifiers)
-                except (ValueError, SyntaxError):
-                    # If parsing fails, use defaults
-                    size_modifiers = [0.9, 1.1, 1.0, 0.8]
+            size_modifiers = self._parse_or_get_default(settings.get('REGION_SIZE_MODIFIER', [0.9, 1.1, 1.0, 0.8]))
             region_index = min(self.region, len(size_modifiers) - 1) if len(size_modifiers) > 0 else 0
             size_modifier = size_modifiers[region_index] if 0 <= region_index < len(size_modifiers) else 1.0
 
-            aggression_modifiers = settings.get('REGION_AGGRESSION_MODIFIER', [1.2, 0.8, 1.0, 1.3])
-            # Ensure it's a list/array and not a string representation
-            if isinstance(aggression_modifiers, str):
-                # If it's a string representation of a list, try to parse it
-                try:
-                    import ast
-                    aggression_modifiers = ast.literal_eval(aggression_modifiers)
-                except (ValueError, SyntaxError):
-                    # If parsing fails, use defaults
-                    aggression_modifiers = [1.2, 0.8, 1.0, 1.3]
+            aggression_modifiers = self._parse_or_get_default(settings.get('REGION_AGGRESSION_MODIFIER', [1.2, 0.8, 1.0, 1.3]))
             region_index = min(self.region, len(aggression_modifiers) - 1) if len(aggression_modifiers) > 0 else 0
             aggression_modifier = aggression_modifiers[region_index] if 0 <= region_index < len(aggression_modifiers) else 1.0
 
-            efficiency_modifiers = settings.get('REGION_EFFICIENCY_MODIFIER', [0.95, 1.05, 1.0, 0.85])
-            # Ensure it's a list/array and not a string representation
-            if isinstance(efficiency_modifiers, str):
-                # If it's a string representation of a list, try to parse it
-                try:
-                    import ast
-                    efficiency_modifiers = ast.literal_eval(efficiency_modifiers)
-                except (ValueError, SyntaxError):
-                    # If parsing fails, use defaults
-                    efficiency_modifiers = [0.95, 1.05, 1.0, 0.85]
+            efficiency_modifiers = self._parse_or_get_default(settings.get('REGION_EFFICIENCY_MODIFIER', [0.95, 1.05, 1.0, 0.85]))
             region_index = min(self.region, len(efficiency_modifiers) - 1) if len(efficiency_modifiers) > 0 else 0
             efficiency_modifier = efficiency_modifiers[region_index] if 0 <= region_index < len(efficiency_modifiers) else 1.0
 
@@ -221,6 +206,17 @@ class Agent:
                 'max_age': 1.0,
                 'virus_resistance': 1.0,
             }
+
+    def _parse_or_get_default(self, value):
+        """Parse a value that might be a string representation of a list, or return as-is."""
+        if isinstance(value, str):
+            try:
+                import ast
+                return ast.literal_eval(value)
+            except (ValueError, SyntaxError):
+                # If parsing fails, return default
+                return [1.0, 1.0, 1.0, 1.0]  # Default to neutral modifiers
+        return value
 
     def update_region(self, settings=None):
         """Update the agent's region and trait modifiers if it has moved to a new region."""
@@ -341,9 +337,92 @@ class Agent:
         else:
             self.dietary_classification = 'omnivore'
 
+    def _update_water_speed(self):
+        """Update the water speed based on habitat preference and genetic traits."""
+        habitat_pref = self.phenotype.get('habitat_preference', 1.0)
+
+        if habitat_pref < 0.7:  # Aquatic
+            self.water_speed = self.phenotype.get('speed_in_water_aquatic', 5.0)
+        elif habitat_pref > 1.3:  # Terrestrial
+            self.water_speed = self.phenotype.get('speed_in_water_terrestrial', 1.0)
+        else:  # Amphibious
+            self.water_speed = self.phenotype.get('speed_in_water_amphibious', 3.0)
+
     @property
     def speed(self):
         return self.get_modified_trait('speed')
+
+    @property
+    def speed_in_water(self):
+        """Get the agent's speed when in water based on habitat type."""
+        # Update water speed if habitat preference has changed significantly
+        habitat_pref = self.phenotype.get('habitat_preference', 1.0)
+
+        # Determine expected water speed based on current habitat preference
+        if habitat_pref < 0.7:  # Aquatic
+            expected_speed = self.phenotype.get('speed_in_water_aquatic', 5.0)
+        elif habitat_pref > 1.3:  # Terrestrial
+            expected_speed = self.phenotype.get('speed_in_water_terrestrial', 1.0)
+        else:  # Amphibious
+            expected_speed = self.phenotype.get('speed_in_water_amphibious', 3.0)
+
+        # Update if needed
+        if not hasattr(self, 'water_speed') or abs(self.water_speed - expected_speed) > 0.01:
+            self._update_water_speed()
+
+        return self.water_speed
+
+    @property
+    def speed_on_land(self):
+        """Get the agent's speed when on land based on habitat type."""
+        habitat_pref = self.phenotype.get('habitat_preference', 1.0)
+
+        # Determine land speed based on current habitat preference
+        if habitat_pref < 0.7:  # Aquatic
+            return self.phenotype.get('land_speed_aquatic', 2.0)
+        elif habitat_pref > 1.3:  # Terrestrial
+            return self.phenotype.get('land_speed_terrestrial', 5.5)
+        else:  # Amphibious
+            return self.phenotype.get('land_speed_amphibious', 4.0)
+
+    @property
+    def energy_consumption_rate(self):
+        """Get the agent's energy consumption rate based on habitat type."""
+        habitat_pref = self.phenotype.get('habitat_preference', 1.0)
+
+        # Determine energy consumption based on current habitat preference
+        if habitat_pref < 0.7:  # Aquatic
+            return self.phenotype.get('energy_consumption_aquatic', 0.8)
+        elif habitat_pref > 1.3:  # Terrestrial
+            return self.phenotype.get('energy_consumption_terrestrial', 0.9)
+        else:  # Amphibious
+            return self.phenotype.get('energy_consumption_amphibious', 1.0)
+
+    @property
+    def vision_range_by_habitat(self):
+        """Get the agent's vision range based on habitat type."""
+        habitat_pref = self.phenotype.get('habitat_preference', 1.0)
+
+        # Determine vision range based on current habitat preference
+        if habitat_pref < 0.7:  # Aquatic
+            return self.phenotype.get('vision_range_aquatic', 80.0)
+        elif habitat_pref > 1.3:  # Terrestrial
+            return self.phenotype.get('vision_range_terrestrial', 120.0)
+        else:  # Amphibious
+            return self.phenotype.get('vision_range_amphibious', 100.0)
+
+    @property
+    def diet_energy_conversion_rate(self):
+        """Get the agent's diet-specific energy conversion rate."""
+        diet_type = self.diet_type_numeric
+
+        # Determine energy conversion based on current diet type
+        if diet_type <= 0.5:  # Carnivore
+            return self.phenotype.get('diet_energy_conversion', 1.0)
+        elif diet_type >= 1.5:  # Herbivore
+            return self.phenotype.get('diet_energy_conversion', 1.0)
+        else:  # Omnivore
+            return self.phenotype.get('diet_energy_conversion', 1.0)
 
     @property
     def size(self):
@@ -489,6 +568,91 @@ class Agent:
             # Default to circle if unknown shape
             pygame.draw.circle(screen, color, pos, radius)
 
+    def draw_with_shape_scaled(self, screen, pos, scale=1.0):
+        """Draw the agent with its specific shape based on species, with scaling."""
+        color = self.get_color()
+        radius = max(1, int(self.radius() * scale))
+
+        if self.shape_type == 'circle':
+            pygame.draw.circle(screen, color, pos, radius)
+        elif self.shape_type == 'square':
+            pygame.draw.rect(screen, color, (pos[0] - radius, pos[1] - radius, radius * 2, radius * 2))
+        elif self.shape_type == 'triangle':
+            # Draw an upward-pointing triangle
+            points = [
+                (pos[0], pos[1] - radius),  # Top point
+                (pos[0] - radius, pos[1] + radius),  # Bottom left
+                (pos[0] + radius, pos[1] + radius)   # Bottom right
+            ]
+            pygame.draw.polygon(screen, color, points)
+        elif self.shape_type == 'diamond':
+            # Draw a diamond/rhombus shape
+            points = [
+                (pos[0], pos[1] - radius),  # Top
+                (pos[0] + radius, pos[1]),  # Right
+                (pos[0], pos[1] + radius),  # Bottom
+                (pos[0] - radius, pos[1])   # Left
+            ]
+            pygame.draw.polygon(screen, color, points)
+        elif self.shape_type == 'hexagon':
+            # Draw a hexagon shape
+            points = []
+            for i in range(6):
+                angle_deg = 60 * i - 30  # Offset by -30 to make flat side on top
+                angle_rad = math.radians(angle_deg)
+                x = pos[0] + radius * math.cos(angle_rad)
+                y = pos[1] + radius * math.sin(angle_rad)
+                points.append((x, y))
+            pygame.draw.polygon(screen, color, points)
+        elif self.shape_type == 'parallelogram':
+            # Draw a parallelogram shape (slanted rectangle)
+            offset = radius * 0.5  # Horizontal slant
+            points = [
+                (pos[0] - radius + offset, pos[1] - radius),  # Top-left shifted right
+                (pos[0] + radius + offset, pos[1] - radius),  # Top-right shifted right
+                (pos[0] + radius - offset, pos[1] + radius),  # Bottom-right shifted left
+                (pos[0] - radius - offset, pos[1] + radius)   # Bottom-left shifted left
+            ]
+            pygame.draw.polygon(screen, color, points)
+        elif self.shape_type == 'pentagon':
+            # Draw a pentagon shape
+            points = []
+            for i in range(5):
+                angle_deg = 72 * i - 90  # 72 degrees per vertex, start at top (-90 degrees)
+                angle_rad = math.radians(angle_deg)
+                x = pos[0] + radius * math.cos(angle_rad)
+                y = pos[1] + radius * math.sin(angle_rad)
+                points.append((x, y))
+            pygame.draw.polygon(screen, color, points)
+        elif self.shape_type == 'star':
+            # Draw a 5-pointed star shape
+            outer_points = []
+            inner_points = []
+
+            for i in range(5):
+                # Outer points (tips of star)
+                outer_angle = math.radians(72 * i - 90)  # Start at top
+                outer_x = pos[0] + radius * math.cos(outer_angle)
+                outer_y = pos[1] + radius * math.sin(outer_angle)
+                outer_points.append((outer_x, outer_y))
+
+                # Inner points (valleys of star)
+                inner_angle = math.radians(72 * i + 36 - 90)  # Between outer points
+                inner_x = pos[0] + (radius * 0.4) * math.cos(inner_angle)
+                inner_y = pos[1] + (radius * 0.4) * math.sin(inner_angle)
+                inner_points.append((inner_x, inner_y))
+
+            # Combine outer and inner points in order
+            star_points = []
+            for i in range(5):
+                star_points.append(outer_points[i])
+                star_points.append(inner_points[i])
+
+            pygame.draw.polygon(screen, color, star_points)
+        else:
+            # Default to circle if unknown shape
+            pygame.draw.circle(screen, color, pos, radius)
+
     def die(self):
         self.alive = False
         # Clear infection status when agent dies
@@ -516,6 +680,21 @@ class Agent:
         b = max(0, min(255, int(base_blue)))
 
         return (max(20, r), max(20, g), max(20, b))
+
+    @property
+    def world(self):
+        """Get the world reference using weak reference."""
+        if self._world_ref is not None:
+            return self._world_ref()
+        return None
+
+    @world.setter
+    def world(self, world_obj):
+        """Set the world reference as a weak reference."""
+        if world_obj is not None:
+            self._world_ref = weakref.ref(world_obj)
+        else:
+            self._world_ref = None
 
     def get_color(self):
         """Color based on fixed genetic color traits with energy brightness only."""
@@ -643,5 +822,161 @@ class Agent:
         if isinstance(self.brain, RecurrentBrain):
             self.brain.reset_hidden_state()
 
+    @classmethod
+    def create_with_config(cls, pos, settings, agent_config):
+        """
+        Create an agent with a specific configuration.
+
+        Args:
+            pos: Position for the agent
+            settings: Global simulation settings
+            agent_config: Specific configuration for this agent type
+
+        Returns:
+            Agent instance with the specified configuration
+        """
+        # Create a genome with the specific configuration
+        from src.genetics.genome import Genome
+
+        # Create a genome based on the agent configuration
+        # This would use the specific traits defined in the agent_config
+        genome = Genome.create_with_traits(agent_config)
+
+        # Create the agent with the specific genome
+        agent = cls(pos, genome, generation=0,
+                   trait_ranges=settings.get('TRAIT_RANGES', config.TRAIT_RANGES),
+                   settings=settings)
+
+        # Apply any specific configuration overrides
+        for key, value in agent_config.items():
+            # Skip environmental settings that should be shared
+            environmental_keys = [
+                'WORLD_WIDTH', 'WORLD_HEIGHT', 'FOOD_SPAWN_RATE', 'INITIAL_FOOD',
+                'WORLD_BOUNDARY_TYPE', 'GRAVITY_ENABLED', 'WIND_EFFECTS',
+                'SEASONAL_CHANGES', 'WEATHER_SYSTEM', 'TERRAIN_FEATURES',
+                'SIMULATION_SPEED', 'PARTICLE_EFFECTS', 'BACKGROUND_ELEMENTS',
+                'MAX_FOOD', 'NUM_WATER_SOURCES', 'WATER_SOURCE_RADIUS',
+                'NUM_FOOD_CLUSTERS', 'FOOD_CLUSTER_SPREAD', 'SEASON_SHIFT_INTERVAL',
+                'GRID_CELL_SIZE', 'HUD_WIDTH', 'WINDOW_WIDTH', 'WINDOW_HEIGHT',
+                'OBSTACLES_ENABLED', 'BORDER_ENABLED', 'BORDER_WIDTH', 'NUM_INTERNAL_OBSTACLES',
+                'TEMPERATURE_ENABLED', 'TEMPERATURE_ZONES_X', 'TEMPERATURE_ZONES_Y',
+                'REGIONAL_VARIATIONS_ENABLED', 'NUM_REGIONS_X', 'NUM_REGIONS_Y',
+                'EPIDEMIC_ENABLED', 'EPIDEMIC_INTERVAL', 'EPIDEMIC_MIN_POPULATION_RATIO',
+                'EPIDEMIC_AFFECTED_RATIO', 'EPIDEMIC_BASE_PROBABILITY',
+                'DISEASE_TRANSMISSION_ENABLED', 'DISEASE_TRANSMISSION_DISTANCE', 'DISEASE_NAMES', 'NUM_DISEASE_TYPES'
+            ]
+
+            if key not in environmental_keys:
+                if hasattr(agent, key.lower()):
+                    setattr(agent, key.lower(), value)
+                elif hasattr(agent, key):
+                    setattr(agent, key, value)
+
+        return agent
+
+    @property
+    def diet_type(self):
+        """Get the agent's diet type based on genetic traits.
+        Returns: 'carnivore', 'herbivore', or 'omnivore'
+        """
+        # Average the two alleles for diet type
+        diet_val = (self.phenotype.get('diet_type_1', 1.0) + self.phenotype.get('diet_type_2', 1.0)) / 2.0
+
+        # Map continuous value to discrete diet types
+        if diet_val < 0.7:
+            return 'carnivore'
+        elif diet_val > 1.3:
+            return 'herbivore'
+        else:
+            return 'omnivore'
+
+    @property
+    def habitat_preference(self):
+        """Get the agent's habitat preference based on genetic traits.
+        Returns: 'aquatic', 'amphibious', or 'terrestrial'
+        """
+        # Average the two alleles for habitat preference
+        habitat_val = (self.phenotype.get('habitat_preference_1', 1.0) + self.phenotype.get('habitat_preference_2', 1.0)) / 2.0
+
+        # Map continuous value to discrete habitat types
+        if habitat_val < 0.7:
+            return 'aquatic'
+        elif habitat_val > 1.3:
+            return 'terrestrial'
+        else:
+            return 'amphibious'
+
+    def update_dietary_behavior(self, attack_successful=False, ate_food=False):
+        """Update dietary behavior based on recent actions, strongly influenced by genetic diet type."""
+        # Update carnivorous tendency based on attack intent and success
+        if self.attack_intent > 0.5:  # Agent is trying to attack
+            self.carnivorous_tendency += 0.01
+            if attack_successful:
+                self.hunting_success_rate += 0.05
+        elif self.attack_intent < -0.5:  # Agent is trying to flee
+            self.herbivorous_tendency += 0.005
+
+        # Update herbivorous tendency based on food consumption
+        if ate_food:
+            self.herbivorous_tendency += 0.02
+
+        # Strongly bias the classification toward the genetic diet type
+        # The genetic diet type is the primary determinant of behavior
+        if self.diet_type == 'carnivore':
+            # Carnivores are strongly biased toward carnivorous behavior
+            self.carnivorous_tendency += 0.05
+            self.dietary_classification = 'carnivore'
+        elif self.diet_type == 'herbivore':
+            # Herbivores are strongly biased toward herbivorous behavior
+            self.herbivorous_tendency += 0.05
+            self.dietary_classification = 'herbivore'
+        else:  # Omnivore
+            # Omnivores can exhibit both behaviors but tend toward balanced tendencies
+            self.carnivorous_tendency *= 0.98  # Slow decay toward neutrality
+            self.herbivorous_tendency *= 0.98  # Slow decay toward neutrality
+            # Classification based on actual tendencies but with omnivore bias
+            if self.carnivorous_tendency > self.herbivorous_tendency * 1.5:
+                self.dietary_classification = 'carnivore'
+            elif self.herbivorous_tendency > self.carnivorous_tendency * 1.5:
+                self.dietary_classification = 'herbivore'
+            else:
+                self.dietary_classification = 'omnivore'
+
+    def can_enter_water(self):
+        """Check if the agent can enter water based on habitat preference.
+        All agents can enter water, but with different penalties based on habitat preference."""
+        # All agents can enter water, but with different penalties
+        return True
+
+    def can_enter_land(self):
+        """Check if the agent can enter land based on habitat preference."""
+        # Get numeric habitat preference (0.0 = aquatic, 1.0 = amphibious, 2.0 = terrestrial)
+        habitat_pref = self.phenotype.get('habitat_preference', 1.0)
+        # Aquatic agents (closer to 0.0) cannot enter land, others can
+        return habitat_pref > 0.5
+
+    @property
+    def diet_type_numeric(self):
+        """Get the agent's diet type as a numeric value (0.0 = carnivore, 1.0 = omnivore, 2.0 = herbivore)."""
+        return self.phenotype.get('diet_type', 1.0)
+
+    def can_eat_meat(self):
+        """Check if the agent can eat meat based on diet type."""
+        diet_type = self.diet_type_numeric
+        return diet_type <= 1.0  # carnivore (0.0) or omnivore (1.0)
+
+    def can_eat_plants(self):
+        """Check if the agent can eat plants based on diet type."""
+        diet_type = self.diet_type_numeric
+        return diet_type >= 1.0  # omnivore (1.0) or herbivore (2.0)
+
     def __repr__(self):
-        return f"Agent(id={self.id}, gen={self.generation})"
+        # Convert numeric values to string representations for display
+        diet_map = {0.0: 'carnivore', 1.0: 'omnivore', 2.0: 'herbivore'}
+        habitat_map = {0.0: 'aquatic', 1.0: 'amphibious', 2.0: 'terrestrial'}
+
+        diet_str = diet_map.get(int(self.diet_type_numeric), f'unknown({self.diet_type_numeric})')
+        habitat_pref = self.phenotype.get('habitat_preference', 1.0)
+        habitat_str = habitat_map.get(int(habitat_pref), f'unknown({habitat_pref})')
+
+        return f"Agent(id={self.id}, gen={self.generation}, diet={diet_str}, habitat={habitat_str})"

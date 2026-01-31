@@ -15,9 +15,18 @@ CHROMOSOME_LAYOUT = [
     ['vision_1', 'vision_2', 'efficiency_3', 'repro_1', 'repro_2', 'camo_1', 'virus_resistance_2'],
     # Chromosome 2: Aggression, Agility, Armor (morphological traits)
     ['aggro_1', 'aggro_2', 'agility_1', 'agility_2', 'armor_1', 'armor_2'],
-    # Chromosome 3: Color genes and disease resistance genes
+    # Chromosome 3: Color genes, disease resistance genes, and new diet/habitat traits
     ['color_red_1', 'color_red_2', 'color_green_1', 'color_green_2', 'color_blue_1', 'color_blue_2',
-     'disease_resistance_1', 'disease_resistance_2', 'disease_resistance_3', 'disease_resistance_4'],
+     'disease_resistance_1', 'disease_resistance_2', 'disease_resistance_3', 'disease_resistance_4',
+     'diet_type_1', 'diet_type_2', 'habitat_preference_1', 'habitat_preference_2',
+     'speed_in_water_aquatic_1', 'speed_in_water_aquatic_2', 'speed_in_water_amphibious_1', 'speed_in_water_amphibious_2',
+     'speed_in_water_terrestrial_1', 'speed_in_water_terrestrial_2',
+     'land_speed_aquatic_1', 'land_speed_aquatic_2', 'land_speed_amphibious_1', 'land_speed_amphibious_2',
+     'land_speed_terrestrial_1', 'land_speed_terrestrial_2',
+     'energy_consumption_aquatic_1', 'energy_consumption_aquatic_2', 'energy_consumption_amphibious_1', 'energy_consumption_amphibious_2',
+     'energy_consumption_terrestrial_1', 'energy_consumption_terrestrial_2',
+     'vision_range_aquatic_1', 'vision_range_aquatic_2', 'vision_range_amphibious_1', 'vision_range_amphibious_2',
+     'vision_range_terrestrial_1', 'vision_range_terrestrial_2'],
     # Chromosome 4: Brain weights 0-63 (input→hidden partial)
     [f'brain_w{i}' for i in range(0, 64)],
     # Chromosome 5: Brain weights 64-127 (input→hidden partial)
@@ -52,6 +61,25 @@ GENE_DEFAULTS = {
     # Morphological trait gene defaults (agility and armor)
     'agility_1': 0.5, 'agility_2': 0.5,
     'armor_1': 0.5, 'armor_2': 0.5,
+    # Diet and habitat preference gene defaults
+    'diet_type_1': 1.0, 'diet_type_2': 1.0,  # 0=carnivore, 1=omnivore, 2=herbivore
+    'habitat_preference_1': 1.0, 'habitat_preference_2': 1.0,  # 0=aquatic, 1=amphibious, 2=terrestrial
+    # Speed in water gene defaults
+    'speed_in_water_aquatic_1': 5.0, 'speed_in_water_aquatic_2': 5.0,      # Default speed in water for aquatic agents
+    'speed_in_water_amphibious_1': 3.0, 'speed_in_water_amphibious_2': 3.0, # Default speed in water for amphibious agents
+    'speed_in_water_terrestrial_1': 1.0, 'speed_in_water_terrestrial_2': 1.0, # Default speed in water for terrestrial agents
+    # Speed on land gene defaults
+    'land_speed_aquatic_1': 2.0, 'land_speed_aquatic_2': 2.0,          # Default speed on land for aquatic agents
+    'land_speed_amphibious_1': 4.0, 'land_speed_amphibious_2': 4.0,       # Default speed on land for amphibious agents
+    'land_speed_terrestrial_1': 5.5, 'land_speed_terrestrial_2': 5.5,      # Default speed on land for terrestrial agents
+    # Energy consumption gene defaults
+    'energy_consumption_aquatic_1': 0.8, 'energy_consumption_aquatic_2': 0.8,  # Default energy consumption rate for aquatic agents
+    'energy_consumption_amphibious_1': 1.0, 'energy_consumption_amphibious_2': 1.0, # Default energy consumption rate for amphibious agents
+    'energy_consumption_terrestrial_1': 0.9, 'energy_consumption_terrestrial_2': 0.9, # Default energy consumption rate for terrestrial agents
+    # Vision range gene defaults
+    'vision_range_aquatic_1': 80.0, 'vision_range_aquatic_2': 80.0,       # Default vision range for aquatic agents in water
+    'vision_range_amphibious_1': 100.0, 'vision_range_amphibious_2': 100.0,   # Default vision range for amphibious agents
+    'vision_range_terrestrial_1': 120.0, 'vision_range_terrestrial_2': 120.0,  # Default vision range for terrestrial agents on land
 }
 
 # Add brain weight defaults (all 0.0 mean)
@@ -81,6 +109,25 @@ GENE_STDS = {
     # Morphological trait gene standard deviations
     'agility_1': 0.15, 'agility_2': 0.15,
     'armor_1': 0.15, 'armor_2': 0.15,
+    # Diet and habitat preference gene standard deviations
+    'diet_type_1': 0.3, 'diet_type_2': 0.3,
+    'habitat_preference_1': 0.3, 'habitat_preference_2': 0.3,
+    # Speed in water gene standard deviations
+    'speed_in_water_aquatic_1': 0.5, 'speed_in_water_aquatic_2': 0.5,
+    'speed_in_water_amphibious_1': 0.5, 'speed_in_water_amphibious_2': 0.5,
+    'speed_in_water_terrestrial_1': 0.5, 'speed_in_water_terrestrial_2': 0.5,
+    # Speed on land gene standard deviations
+    'land_speed_aquatic_1': 0.3, 'land_speed_aquatic_2': 0.3,
+    'land_speed_amphibious_1': 0.3, 'land_speed_amphibious_2': 0.3,
+    'land_speed_terrestrial_1': 0.3, 'land_speed_terrestrial_2': 0.3,
+    # Energy consumption gene standard deviations
+    'energy_consumption_aquatic_1': 0.1, 'energy_consumption_aquatic_2': 0.1,
+    'energy_consumption_amphibious_1': 0.1, 'energy_consumption_amphibious_2': 0.1,
+    'energy_consumption_terrestrial_1': 0.1, 'energy_consumption_terrestrial_2': 0.1,
+    # Vision range gene standard deviations
+    'vision_range_aquatic_1': 5.0, 'vision_range_aquatic_2': 5.0,
+    'vision_range_amphibious_1': 5.0, 'vision_range_amphibious_2': 5.0,
+    'vision_range_terrestrial_1': 5.0, 'vision_range_terrestrial_2': 5.0,
 }
 
 # Brain gene std uses config value
@@ -90,19 +137,27 @@ for i in range(318):
 
 
 class Genome:
-    __slots__ = ('chromosomes', 'sex')
+    __slots__ = ('chromosomes', 'sex', '_gene_index')
 
     def __init__(self, chromosomes, sex=None):
         self.chromosomes = chromosomes
         self.sex = sex or random.choice(['male', 'female'])
+        self._gene_index = None  # Lazy-loaded gene index
+
+    def _build_gene_index(self):
+        """Build an index of gene names to gene objects for fast lookup."""
+        self._gene_index = {}
+        for chrom in self.chromosomes:
+            for gene in chrom.genes:
+                self._gene_index[gene.name] = gene
 
     def get_gene(self, name):
         """Find a gene by name across all chromosomes."""
-        for chrom in self.chromosomes:
-            for gene in chrom.genes:
-                if gene.name == name:
-                    return gene
-        return None
+        # Build index lazily if not already built
+        if self._gene_index is None:
+            self._build_gene_index()
+
+        return self._gene_index.get(name)
 
     def all_genes(self):
         """Iterator over all genes in the genome."""
@@ -111,10 +166,43 @@ class Genome:
                 yield gene
 
     def copy(self):
-        return Genome(
+        new_genome = Genome(
             [c.copy() for c in self.chromosomes],
             self.sex
         )
+        # Don't copy the gene index since it will be rebuilt lazily when needed
+        return new_genome
+
+    @staticmethod
+    def create_with_traits(trait_dict, sex=None):
+        """
+        Create a genome with specific trait values.
+
+        Args:
+            trait_dict: Dictionary mapping trait names to desired values
+            sex: Sex of the agent ('male' or 'female'), randomly chosen if None
+
+        Returns:
+            Genome instance with specified traits
+        """
+        chromosomes = []
+        for chrom_genes in CHROMOSOME_LAYOUT:
+            genes = []
+            for gene_name in chrom_genes:
+                # Check if this gene's trait is specified in the trait dictionary
+                trait_key = gene_name.replace('_1', '').replace('_2', '').replace('_3', '').replace('_mod', '')
+                if trait_key in trait_dict:
+                    # Use the specified value for this trait
+                    value = trait_dict[trait_key]
+                    # Create gene with the specific value (using both alleles set to the same value for consistency)
+                    genes.append(Gene.create_fixed(gene_name, value))
+                else:
+                    # Use default random generation if not specified
+                    mean = GENE_DEFAULTS.get(gene_name, 0.0)
+                    std = GENE_STDS.get(gene_name, 1.0)
+                    genes.append(Gene.create_random(gene_name, mean, std))
+            chromosomes.append(Chromosome(genes))
+        return Genome(chromosomes, sex or random.choice(['male', 'female']))
 
     @staticmethod
     def create_random(sex=None):

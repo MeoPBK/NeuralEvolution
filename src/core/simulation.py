@@ -9,6 +9,7 @@ from src.systems.aging import update_aging
 from src.systems.somatic_mutation import update_somatic_mutations
 from src.systems.events import EventManager
 from src.systems.disease_transmission import DiseaseTransmissionSystem
+from src.systems.water_exposure import update_water_exposure
 from src.utils.stats import StatsCollector
 import config
 
@@ -74,7 +75,10 @@ class Simulation:
             if agent.alive:
                 agent.update_infection_status(effective_dt)
 
-        # 11. Disease transmission
+        # 11. Water exposure effects
+        update_water_exposure(self.world, effective_dt)
+
+        # 12. Disease transmission
         # Pass the renderer's particle system to the disease transmission system for visual effects
         particle_system = getattr(self.renderer, 'particle_system', None) if self.renderer else None
         self.disease_transmission_system.update(self.world, effective_dt, particle_system)

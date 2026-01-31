@@ -235,14 +235,17 @@ def draw_hud(screen, simulation, font_s, font_m, font_l):
         ("\u2191\u2193", "Speed"),
         ("G", "Genetics"),
         ("S", "Stats"),
-        ("H", "HideHUD"),
+        ("H", "Hist"),
+        ("I", "Info"),
+        ("C", "Creatures"),
         ("F11", "Fullscr"),
         ("ESC", "Menu"),
         ("M/N", "Mtns"),
         ("R/T", "River"),
         ("L", "Lake"),
-        ("D", "Diag"),
-        ("C", "Clear"),
+        ("D", "Delete"),
+        ("O", "Obstcl"),
+        ("B", "Border"),
     ]
 
     # Draw controls in two columns
