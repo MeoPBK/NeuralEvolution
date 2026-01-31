@@ -52,7 +52,7 @@ def draw_main_menu(screen, font_large, font_med):
 
     # Version info
     version_font = pygame.font.SysFont('monospace', 12)
-    version = version_font.render("v0.0.1", True, (80, 85, 100))
+    version = version_font.render("v0.0.2", True, (80, 85, 100))
     screen.blit(version, (screen_width // 2 - version.get_width() // 2, title_y + 75))
 
     # Menu buttons - centered vertically

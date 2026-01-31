@@ -309,6 +309,42 @@ def _handle_collision(agent, new_pos, world, settings, dt):
                                         push_vector = Vector2.random_unit() * (agent_radius + 5)  # Increased margin
 
                                 proposed_pos = Vector2(closest_x, closest_y) + push_vector
+                # SPECIAL CASE: MOUNTAINS ARE COMPLETELY IMPASSABLE TO ALL AGENTS
+                elif obstacle.obstacle_type == 'mountain':
+                    if obstacle.collides_with_circle(proposed_pos, agent_radius):
+                        collision_occurred = True
+                        # Push agent away from mountain with extra force to ensure complete impassability
+                        if hasattr(obstacle, 'get_push_vector'):
+                            push = obstacle.get_push_vector(proposed_pos, agent_radius) * 3.0  # Triple the push force
+                            proposed_pos = proposed_pos + push
+                        else:
+                            # Fallback for rectangular obstacles
+                            closest_x = max(obstacle.pos.x, min(proposed_pos.x, obstacle.pos.x + obstacle.width))
+                            closest_y = max(obstacle.pos.y, min(proposed_pos.y, obstacle.pos.y + obstacle.height))
+
+                            push_vector = Vector2(proposed_pos.x - closest_x, proposed_pos.y - closest_y)
+                            distance_sq = push_vector.length_sq()  # Use squared distance
+
+                            if distance_sq < agent_radius_sq:
+                                distance = math.sqrt(distance_sq) if distance_sq > 0 else 0
+                                if distance < 0.001:
+                                    # If agent is stuck inside, push in opposite direction of velocity with extra force
+                                    if agent.velocity.length_sq() > 0.001:
+                                        push_direction = agent.velocity.normalized() * -1
+                                    else:
+                                        # If no velocity, push in a random direction
+                                        push_direction = Vector2.random_unit()
+                                    # Push far enough to clear the obstacle with extra margin
+                                    push_vector = push_direction * (agent_radius + max(obstacle.width, obstacle.height)/2 + 10)  # Increased margin
+                                else:
+                                    # Normalize and extend to push agent completely out with extra margin
+                                    if distance > 0:
+                                        push_vector = push_vector.normalized() * (agent_radius + 10)  # Increased margin
+                                    else:
+                                        # If distance is zero, push in a random direction
+                                        push_vector = Vector2.random_unit() * (agent_radius + 10)  # Increased margin
+
+                                proposed_pos = Vector2(closest_x, closest_y) + push_vector
             elif obstacle.collides_with_circle(proposed_pos, agent_radius):
                 # Regular collision handling for other obstacles
                 collision_occurred = True
@@ -350,31 +386,60 @@ def _handle_collision(agent, new_pos, world, settings, dt):
                 # This prevents agents from getting stuck oscillating back and forth
                 if obstacle.collides_with_circle(proposed_pos, agent_radius):
                     # If still colliding, apply additional push to ensure separation
-                    if hasattr(obstacle, 'get_push_vector'):
-                        additional_push = obstacle.get_push_vector(proposed_pos, agent_radius) * 2.0  # Double the push
-                        proposed_pos = proposed_pos + additional_push
-                    else:
-                        # Calculate direction from obstacle to agent for additional push
-                        if obstacle.shape == 'circle':
-                            # For circular obstacles, push away from center
-                            dir_to_agent = (proposed_pos - obstacle.pos).normalized()
-                            additional_push = dir_to_agent * (agent_radius + obstacle.radius + 5)  # Extra margin
-                            proposed_pos = obstacle.pos + additional_push
+                    if obstacle.obstacle_type == 'mountain':
+                        # For mountains, use even more force to ensure complete impassability
+                        if hasattr(obstacle, 'get_push_vector'):
+                            additional_push = obstacle.get_push_vector(proposed_pos, agent_radius) * 4.0  # Quadruple the push
+                            proposed_pos = proposed_pos + additional_push
                         else:
-                            # For rectangular obstacles, use the push vector from above but with more force
-                            closest_x = max(obstacle.pos.x, min(proposed_pos.x, obstacle.pos.x + obstacle.width))
-                            closest_y = max(obstacle.pos.y, min(proposed_pos.y, obstacle.pos.y + obstacle.height))
-                            repulsion_vec = Vector2(proposed_pos.x - closest_x, proposed_pos.y - closest_y)
-                            distance_repulsion = repulsion_vec.length()
-                            if distance_repulsion > 0:
-                                repulsion_dir = repulsion_vec.normalized()
-                                additional_push = repulsion_dir * (agent_radius + 5)  # Extra margin
-                                proposed_pos = Vector2(closest_x, closest_y) + additional_push
+                            # Calculate direction from obstacle to agent for additional push
+                            if obstacle.shape == 'circle':
+                                # For circular obstacles, push away from center
+                                dir_to_agent = (proposed_pos - obstacle.pos).normalized()
+                                additional_push = dir_to_agent * (agent_radius + obstacle.radius + 15)  # Extra margin for mountains
+                                proposed_pos = obstacle.pos + additional_push
                             else:
-                                # If no clear direction, push in a random direction
-                                random_dir = Vector2.random_unit()
-                                additional_push = random_dir * (agent_radius + 5)
-                                proposed_pos = proposed_pos + additional_push
+                                # For rectangular obstacles, use the push vector from above but with more force
+                                closest_x = max(obstacle.pos.x, min(proposed_pos.x, obstacle.pos.x + obstacle.width))
+                                closest_y = max(obstacle.pos.y, min(proposed_pos.y, obstacle.pos.y + obstacle.height))
+                                repulsion_vec = Vector2(proposed_pos.x - closest_x, proposed_pos.y - closest_y)
+                                distance_repulsion = repulsion_vec.length()
+                                if distance_repulsion > 0:
+                                    repulsion_dir = repulsion_vec.normalized()
+                                    additional_push = repulsion_dir * (agent_radius + 15)  # Extra margin for mountains
+                                    proposed_pos = Vector2(closest_x, closest_y) + additional_push
+                                else:
+                                    # If no clear direction, push in a random direction
+                                    random_dir = Vector2.random_unit()
+                                    additional_push = random_dir * (agent_radius + 15)  # Extra margin for mountains
+                                    proposed_pos = proposed_pos + additional_push
+                    else:
+                        # For non-mountain obstacles, use the original logic
+                        if hasattr(obstacle, 'get_push_vector'):
+                            additional_push = obstacle.get_push_vector(proposed_pos, agent_radius) * 2.0  # Double the push
+                            proposed_pos = proposed_pos + additional_push
+                        else:
+                            # Calculate direction from obstacle to agent for additional push
+                            if obstacle.shape == 'circle':
+                                # For circular obstacles, push away from center
+                                dir_to_agent = (proposed_pos - obstacle.pos).normalized()
+                                additional_push = dir_to_agent * (agent_radius + obstacle.radius + 5)  # Extra margin
+                                proposed_pos = obstacle.pos + additional_push
+                            else:
+                                # For rectangular obstacles, use the push vector from above but with more force
+                                closest_x = max(obstacle.pos.x, min(proposed_pos.x, obstacle.pos.x + obstacle.width))
+                                closest_y = max(obstacle.pos.y, min(proposed_pos.y, obstacle.pos.y + obstacle.height))
+                                repulsion_vec = Vector2(proposed_pos.x - closest_x, proposed_pos.y - closest_y)
+                                distance_repulsion = repulsion_vec.length()
+                                if distance_repulsion > 0:
+                                    repulsion_dir = repulsion_vec.normalized()
+                                    additional_push = repulsion_dir * (agent_radius + 5)  # Extra margin
+                                    proposed_pos = Vector2(closest_x, closest_y) + additional_push
+                                else:
+                                    # If no clear direction, push in a random direction
+                                    random_dir = Vector2.random_unit()
+                                    additional_push = random_dir * (agent_radius + 5)
+                                    proposed_pos = proposed_pos + additional_push
 
         if not collision_occurred:
             break

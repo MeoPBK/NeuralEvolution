@@ -12,10 +12,12 @@ class TerrainGenerator:
 
     @staticmethod
     def generate_mountain_chain(world_width, world_height, orientation='horizontal',
-                                position_ratio=0.5, length_ratio=0.8, roughness=0.3,
-                                num_segments=15, gap_probability=0.10):
+                                position_ratio=0.5, length_ratio=1.0, roughness=0.15,
+                                num_segments=30, gap_probability=0.0):
         """
-        Generate a realistic mountain chain with circular peaks (top-down view).
+        Generate a realistic mountain chain with circular peaks to ensure complete impassability.
+        Creates a continuous barrier system using visible mountains that prevents agents from crossing at any point,
+        spanning from side to side of the screen with reduced visual density.
 
         Args:
             world_width: Width of the world
@@ -32,15 +34,15 @@ class TerrainGenerator:
         """
         obstacles = []
 
-        # Base radius for mountains
-        base_radius = min(world_width, world_height) * 0.035
-
-        # Generate a smooth path using sine waves
+        # Define the path offset function here to avoid NameError
         def generate_path_offset(t, roughness):
             offset = 0
             offset += math.sin(t * 2.5 + random.random() * 10) * roughness * 0.6
             offset += math.sin(t * 5.0 + random.random() * 10) * roughness * 0.3
             return offset
+
+        # Base radius for mountains - adjusted for effective coverage
+        base_radius = min(world_width, world_height) * 0.04
 
         if orientation == 'horizontal':
             start_x = world_width * (1 - length_ratio) / 2
@@ -48,48 +50,62 @@ class TerrainGenerator:
             base_y = world_height * position_ratio
             chain_length = end_x - start_x
 
-            # Determine gaps
-            gap_positions = set()
-            for i in range(num_segments):
-                if random.random() < gap_probability and 2 < i < num_segments - 2:
-                    gap_positions.add(i)
+            # Create circular peaks with reduced density but sufficient coverage
+            segment_spacing = chain_length / num_segments * 1.1  # Slight gap between peaks
 
             for i in range(num_segments):
-                if i in gap_positions:
-                    continue
-
                 t = i / num_segments
-                path_offset = generate_path_offset(t * math.pi * 2, roughness) * world_height * 0.12
+                path_offset = generate_path_offset(t * math.pi * 2, roughness) * world_height * 0.15
 
-                x_pos = start_x + t * chain_length
+                x_pos = start_x + i * segment_spacing
                 y_center = base_y + path_offset
 
-                # Size varies - larger in the middle
-                distance_from_center = abs(t - 0.5) * 2
-                size_factor = 1.0 - distance_from_center * 0.3
+                # Main peak - smaller to reduce visual density
+                main_radius = base_radius * random.uniform(1.2, 1.6)
 
-                # Main peak
-                main_radius = base_radius * size_factor * random.uniform(0.9, 1.3)
-                obstacles.append(Obstacle(
+                # Create the main mountain peak
+                main_peak = Obstacle(
                     Vector2(x_pos, y_center),
                     main_radius * 2, main_radius * 2,
                     'mountain', shape='circle', radius=main_radius
-                ))
+                )
+                obstacles.append(main_peak)
 
-                # Overlapping smaller peaks to create a ridge
-                num_sub_peaks = random.randint(2, 4)
+                # Even fewer overlapping peaks to reduce visual density
+                num_sub_peaks = random.randint(0, 1)  # Reduced number of sub-peaks
                 for _ in range(num_sub_peaks):
-                    sub_radius = main_radius * random.uniform(0.4, 0.7)
+                    sub_radius = main_radius * random.uniform(0.6, 1.0)  # Smaller sub-peaks
                     offset_angle = random.uniform(0, math.pi * 2)
-                    offset_dist = main_radius * random.uniform(0.3, 0.8)
+                    offset_dist = main_radius * random.uniform(0.4, 0.8)  # More spread out sub-peaks
                     sub_x = x_pos + math.cos(offset_angle) * offset_dist
                     sub_y = y_center + math.sin(offset_angle) * offset_dist
+
+                    # Ensure sub-peaks stay within world boundaries
+                    sub_x = max(sub_radius, min(world_width - sub_radius, sub_x))
+                    sub_y = max(sub_radius, min(world_height - sub_radius, sub_y))
 
                     obstacles.append(Obstacle(
                         Vector2(sub_x, sub_y),
                         sub_radius * 2, sub_radius * 2,
                         'mountain', shape='circle', radius=sub_radius
                     ))
+
+            # Add border barriers to prevent agents from crossing at edges
+            # Left border barrier
+            left_barrier = Obstacle(
+                Vector2(-base_radius * 0.3, base_y),
+                base_radius * 0.8, base_radius * 0.8,
+                'mountain', shape='circle', radius=base_radius * 0.4
+            )
+            obstacles.append(left_barrier)
+
+            # Right border barrier
+            right_barrier = Obstacle(
+                Vector2(world_width + base_radius * 0.3, base_y),
+                base_radius * 0.8, base_radius * 0.8,
+                'mountain', shape='circle', radius=base_radius * 0.4
+            )
+            obstacles.append(right_barrier)
 
         else:
             # Vertical chain
@@ -98,44 +114,62 @@ class TerrainGenerator:
             base_x = world_width * position_ratio
             chain_length = end_y - start_y
 
-            gap_positions = set()
-            for i in range(num_segments):
-                if random.random() < gap_probability and 2 < i < num_segments - 2:
-                    gap_positions.add(i)
+            # Create circular peaks with reduced density but sufficient coverage
+            segment_spacing = chain_length / num_segments * 1.1  # Slight gap between peaks
 
             for i in range(num_segments):
-                if i in gap_positions:
-                    continue
-
                 t = i / num_segments
-                path_offset = generate_path_offset(t * math.pi * 2, roughness) * world_width * 0.12
+                path_offset = generate_path_offset(t * math.pi * 2, roughness) * world_width * 0.15
 
-                y_pos = start_y + t * chain_length
+                y_pos = start_y + i * segment_spacing
                 x_center = base_x + path_offset
 
-                distance_from_center = abs(t - 0.5) * 2
-                size_factor = 1.0 - distance_from_center * 0.3
+                # Main peak - smaller to reduce visual density
+                main_radius = base_radius * random.uniform(1.2, 1.6)
 
-                main_radius = base_radius * size_factor * random.uniform(0.9, 1.3)
-                obstacles.append(Obstacle(
+                # Create the main mountain peak
+                main_peak = Obstacle(
                     Vector2(x_center, y_pos),
                     main_radius * 2, main_radius * 2,
                     'mountain', shape='circle', radius=main_radius
-                ))
+                )
+                obstacles.append(main_peak)
 
-                num_sub_peaks = random.randint(2, 4)
+                # Even fewer overlapping peaks to reduce visual density
+                num_sub_peaks = random.randint(0, 1)  # Reduced number of sub-peaks
                 for _ in range(num_sub_peaks):
-                    sub_radius = main_radius * random.uniform(0.4, 0.7)
+                    sub_radius = main_radius * random.uniform(0.6, 1.0)  # Smaller sub-peaks
                     offset_angle = random.uniform(0, math.pi * 2)
-                    offset_dist = main_radius * random.uniform(0.3, 0.8)
+                    offset_dist = main_radius * random.uniform(0.4, 0.8)  # More spread out sub-peaks
                     sub_x = x_center + math.cos(offset_angle) * offset_dist
                     sub_y = y_pos + math.sin(offset_angle) * offset_dist
+
+                    # Ensure sub-peaks stay within world boundaries
+                    sub_x = max(sub_radius, min(world_width - sub_radius, sub_x))
+                    sub_y = max(sub_radius, min(world_height - sub_radius, sub_y))
 
                     obstacles.append(Obstacle(
                         Vector2(sub_x, sub_y),
                         sub_radius * 2, sub_radius * 2,
                         'mountain', shape='circle', radius=sub_radius
                     ))
+
+            # Add border barriers to prevent agents from crossing at edges
+            # Top border barrier
+            top_barrier = Obstacle(
+                Vector2(base_x, -base_radius * 0.3),
+                base_radius * 0.8, base_radius * 0.8,
+                'mountain', shape='circle', radius=base_radius * 0.4
+            )
+            obstacles.append(top_barrier)
+
+            # Bottom border barrier
+            bottom_barrier = Obstacle(
+                Vector2(base_x, world_height + base_radius * 0.3),
+                base_radius * 0.8, base_radius * 0.8,
+                'mountain', shape='circle', radius=base_radius * 0.4
+            )
+            obstacles.append(bottom_barrier)
 
         return obstacles
 

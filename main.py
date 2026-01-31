@@ -484,10 +484,10 @@ def main():
                                 world_width, world_height,
                                 orientation='horizontal',
                                 position_ratio=0.5,  # Middle of world
-                                length_ratio=0.85,
-                                roughness=0.35,
-                                num_segments=18,
-                                gap_probability=0.12
+                                length_ratio=1.0,  # Full width coverage
+                                roughness=0.15,  # Moderate roughness for natural appearance
+                                num_segments=30,  # More segments for better coverage with smaller peaks
+                                gap_probability=0.0  # No gaps - completely uncrossable
                             )
                             simulation.world.obstacle_list.extend(mountains)
 
@@ -501,10 +501,10 @@ def main():
                                 world_width, world_height,
                                 orientation='vertical',
                                 position_ratio=0.5,
-                                length_ratio=0.85,
-                                roughness=0.35,
-                                num_segments=18,
-                                gap_probability=0.12
+                                length_ratio=1.0,  # Full height coverage
+                                roughness=0.15,  # Moderate roughness for natural appearance
+                                num_segments=30,  # More segments for better coverage with smaller peaks
+                                gap_probability=0.0  # No gaps - completely uncrossable
                             )
                             simulation.world.obstacle_list.extend(mountains)
 
